@@ -17,13 +17,19 @@
     <div class="nav-logo-icon"><img src="Imagenes/logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: cover;"></div>
     <div class="nav-logo-text">AUTO<span>MOTRIZ</span><br><span style="font-size:0.7em;letter-spacing:4px;color:var(--gold)">MERIZALDE</span></div>
   </a>
-  <ul class="nav-links">
+  <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+  <ul class="nav-links" id="navLinks">
     <li><a href="#servicios">Servicios</a></li>
     <li><a href="#productos">Productos</a></li>
     <li><a href="#nosotros">Nosotros</a></li>
     <li><a href="#contacto" class="nav-cta">Contacto</a></li>
   </ul>
 </nav>
+<div class="nav-overlay" id="navOverlay"></div>
 
 <!-- HERO -->
 <section class="hero" id="inicio">
@@ -229,23 +235,26 @@
 
     <div class="contact-form">
       <h3>Envíanos un Mensaje</h3>
-      <div class="form-row">
-        <label>Nombre completo</label>
-        <input type="text" placeholder="Tu nombre"/>
-      </div>
-      <div class="form-row">
-        <label>Teléfono</label>
-        <input type="tel" placeholder="Tu número de contacto"/>
-      </div>
-      <div class="form-row">
-        <label>Servicio requerido</label>
-        <input type="text" placeholder="Ej: Cambio de aceite, Diagnóstico..."/>
-      </div>
-      <div class="form-row">
-        <label>Mensaje</label>
-        <textarea placeholder="Cuéntanos sobre tu vehículo y el problema..."></textarea>
-      </div>
-      <button class="form-submit" onclick="sendWhatsApp()">Enviar por WhatsApp 📱</button>
+      <form id="contactForm" action="php/guardar_contacto.php" method="POST" novalidate>
+        <div class="form-row">
+          <label for="nombre">Nombre completo</label>
+          <input type="text" id="nombre" name="nombre" placeholder="Tu nombre" required maxlength="100"/>
+        </div>
+        <div class="form-row">
+          <label for="telefono">Teléfono</label>
+          <input type="tel" id="telefono" name="telefono" placeholder="Tu número de contacto" required maxlength="20"/>
+        </div>
+        <div class="form-row">
+          <label for="servicio">Servicio requerido</label>
+          <input type="text" id="servicio" name="servicio" placeholder="Ej: Cambio de aceite, Diagnóstico..." required maxlength="150"/>
+        </div>
+        <div class="form-row">
+          <label for="mensaje">Mensaje</label>
+          <textarea id="mensaje" name="mensaje" placeholder="Cuéntanos sobre tu vehículo y el problema..." required></textarea>
+        </div>
+        <button type="submit" class="form-submit">Enviar por WhatsApp 📱</button>
+        <p id="formStatus" class="form-status" role="status"></p>
+      </form>
     </div>
   </div>
 </section>
@@ -300,13 +309,91 @@
 </a>
 
 <script>
-function sendWhatsApp() {
-  const nombre = document.querySelectorAll('.form-row input')[0].value || '';
-  const servicio = document.querySelectorAll('.form-row input')[2].value || '';
-  const mensaje = document.querySelector('.form-row textarea').value || '';
-  const texto = `Hola Automotriz Merizalde! Mi nombre es ${nombre}. Necesito: ${servicio}. ${mensaje}`;
-  window.open(`https://wa.me/593988903605?text=${encodeURIComponent(texto)}`, '_blank');
-}
+// Envío del formulario: guarda en la BD vía POST y luego abre WhatsApp
+(function() {
+  const form = document.getElementById('contactForm');
+  const status = document.getElementById('formStatus');
+  if (!form) return;
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const nombre   = form.nombre.value.trim();
+    const telefono = form.telefono.value.trim();
+    const servicio = form.servicio.value.trim();
+    const mensaje  = form.mensaje.value.trim();
+
+    if (!nombre || !telefono || !servicio || !mensaje) {
+      status.textContent = 'Por favor completa todos los campos.';
+      status.className = 'form-status is-error';
+      return;
+    }
+
+    const btn = form.querySelector('.form-submit');
+    btn.disabled = true;
+    status.textContent = 'Enviando...';
+    status.className = 'form-status';
+
+    try {
+      const data = new FormData(form);
+      const res = await fetch(form.action, { method: 'POST', body: data });
+      const json = await res.json();
+
+      if (json.ok) {
+        status.textContent = '¡Mensaje guardado! Abriendo WhatsApp...';
+        status.className = 'form-status is-ok';
+
+        const texto = `Hola Automotriz Merizalde! Mi nombre es ${nombre}. Necesito: ${servicio}. ${mensaje}`;
+        window.open(`https://wa.me/593988903605?text=${encodeURIComponent(texto)}`, '_blank');
+        form.reset();
+      } else {
+        status.textContent = json.mensaje || 'No se pudo enviar el mensaje.';
+        status.className = 'form-status is-error';
+      }
+    } catch (err) {
+      status.textContent = 'Error de conexión. Intenta nuevamente.';
+      status.className = 'form-status is-error';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+
+// Menú hamburguesa
+(function() {
+  const toggle = document.getElementById('navToggle');
+  const links = document.getElementById('navLinks');
+  const overlay = document.getElementById('navOverlay');
+
+  function closeMenu() {
+    toggle.classList.remove('is-active');
+    links.classList.remove('is-open');
+    overlay.classList.remove('is-visible');
+    document.body.classList.remove('nav-open');
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function openMenu() {
+    toggle.classList.add('is-active');
+    links.classList.add('is-open');
+    overlay.classList.add('is-visible');
+    document.body.classList.add('nav-open');
+    toggle.setAttribute('aria-expanded', 'true');
+  }
+
+  toggle.addEventListener('click', function() {
+    if (links.classList.contains('is-open')) closeMenu();
+    else openMenu();
+  });
+
+  overlay.addEventListener('click', closeMenu);
+
+  links.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+
+  window.addEventListener('resize', function() {
+    if (window.innerWidth > 900) closeMenu();
+  });
+})();
 </script>
 </body>
 </html>
